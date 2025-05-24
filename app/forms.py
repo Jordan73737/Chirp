@@ -1,0 +1,25 @@
+from flask_wtf import FlaskForm
+from wtforms import StringField, PasswordField, SubmitField, TextAreaField
+from wtforms.validators import DataRequired, Email, EqualTo, Length
+
+class LikeForm(FlaskForm):
+    submit = SubmitField('Like')
+
+class RegisterForm(FlaskForm):
+
+    username = StringField('Username', validators=[DataRequired()])
+    email = StringField('Email', validators=[DataRequired(), Email()])
+    password = PasswordField('Password', validators=[DataRequired()])
+    confirm_password = PasswordField('Confirm Password', validators=[DataRequired(), EqualTo('password')])
+    submit = SubmitField('Register')
+
+
+class LoginForm(FlaskForm):
+    email = StringField('Email', validators=[DataRequired(), Email()])
+    password = PasswordField('Password', validators=[DataRequired()])
+    submit = SubmitField('Login')
+
+class PostForm(FlaskForm):
+    content = TextAreaField('What’s happening?', validators=[DataRequired(), Length(max=280)])
+    submit = SubmitField('Chirp')
+
