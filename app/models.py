@@ -62,8 +62,9 @@ class Post(db.Model):
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
-    likes = db.relationship('Like', backref='post', lazy=True)
-    reposts = db.relationship('Repost', backref='post', lazy=True)
+    likes = db.relationship('Like', backref='post', lazy=True, cascade='all, delete-orphan')
+    reposts = db.relationship('Repost', backref='post', lazy=True, cascade='all, delete-orphan')
+
 
 
 

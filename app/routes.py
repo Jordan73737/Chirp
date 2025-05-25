@@ -5,7 +5,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 from app.forms import PostForm
 from app.models import User, Post, Like
 
-
+# Flask function to make routes work
 main = Blueprint('main', __name__)
 
 @login_manager.user_loader
