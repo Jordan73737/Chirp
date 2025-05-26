@@ -5,12 +5,51 @@
 {% block content %}
   <h2>Welcome, {{ user.username }}!</h2>
 
+  <!-- User Search -->
+  <div style="margin-bottom: 1em;">
+    <input type="text" id="user-search" placeholder="Search users..." autocomplete="off" style="padding: 0.5em; width: 300px;">
+    <ul id="suggestions" style="list-style: none; padding: 0; border: 1px solid #ccc; max-height: 150px; overflow-y: auto; display: none;"></ul>
+  </div>
+
+  <script>
+    const input = document.getElementById('user-search');
+    const suggestions = document.getElementById('suggestions');
+
+    input.addEventListener('input', async () => {
+      const query = input.value.trim();
+      if (!query) {
+        suggestions.style.display = 'none';
+        suggestions.innerHTML = '';
+        return;
+      }
+
+      const res = await fetch(`/search_users?q=${encodeURIComponent(query)}`);
+      const users = await res.json();
+
+      suggestions.innerHTML = '';
+      if (users.length > 0) {
+        suggestions.style.display = 'block';
+        users.forEach(user => {
+          const li = document.createElement('li');
+          li.innerHTML = `<a href="/user/${user.id}" style="display: block; padding: 0.5em;">${user.username}</a>`;
+          suggestions.appendChild(li);
+        });
+      } else {
+        suggestions.style.display = 'none';
+      }
+    });
+
+    document.addEventListener('click', e => {
+      if (!input.contains(e.target) && !suggestions.contains(e.target)) {
+        suggestions.style.display = 'none';
+      }
+    });
+  </script>
+
+  <!-- Post Form -->
   <form method="POST">
     {{ form.hidden_tag() }}
-    <p>
-      {{ form.content.label }}<br>
-      {{ form.content(rows=3, cols=60) }}
-    </p>
+    <p>{{ form.content.label }}<br>{{ form.content(rows=3, cols=60) }}</p>
     <p>{{ form.submit() }}</p>
   </form>
 
@@ -22,7 +61,7 @@
       <small style="color: gray;">— {{ post.timestamp.strftime('%Y-%m-%d %H:%M') }}</small>
       <p>{{ post.content }}</p>
 
-      <!-- Like Button with Count and Color Toggle -->
+      <!-- Like Button -->
       <form method="POST" action="{{ url_for('main.like_post', post_id=post.id) }}" style="display:inline;">
         {{ like_form.hidden_tag() }}
         <button type="submit" style="background: none; border: none; font-size: 1.2em;">
@@ -33,7 +72,7 @@
         </button>
       </form>
 
-      <!-- Edit/Delete Buttons -->
+      <!-- Edit/Delete -->
       {% if post.author.id == current_user.id %}
         <a href="{{ url_for('main.edit_post', post_id=post.id) }}">Edit</a>
         <form method="POST" action="{{ url_for('main.delete_post', post_id=post.id) }}" style="display: inline;">

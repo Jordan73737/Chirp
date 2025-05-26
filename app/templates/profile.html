@@ -1,6 +1,69 @@
 {% extends 'base.html' %}
-{% block title %}Your Profile{% endblock %}
+
+{% block title %}Profile{% endblock %}
+
 {% block content %}
-  <h2>{{ user.username }}'s Profile</h2>
-  <p>Email: {{ user.email }}</p>
+  <div style="display: flex; align-items: center; gap: 2em;">
+    {% if user.profile and user.profile.profile_pic %}
+      <img src="{{ url_for('static', filename='uploads/' ~ user.profile.profile_pic) }}" alt="Profile Picture" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover;">
+    {% else %}
+      <img src="{{ url_for('static', filename='default_profile.png') }}" alt="Default Profile Picture" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover;">
+    {% endif %}
+    
+    <div>
+      <h2>{{ user.username }}</h2>
+      {% if user.profile and user.profile.bio %}<p><strong>Bio:</strong> {{ user.profile.bio }}</p>{% endif %}
+      {% if user.profile and user.profile.location %}<p><strong>Location:</strong> {{ user.profile.location }}</p>{% endif %}
+      {% if user.profile and user.profile.website %}<p><strong>Website:</strong> <a href="{{ user.profile.website }}" target="_blank">{{ user.profile.website }}</a></p>{% endif %}
+
+      {% if current_user.id == user.id %}
+        <a href="{{ url_for('main.edit_profile') }}" class="btn">Edit Profile</a>
+        
+        {% if user.received_requests %}
+          <h4>Pending Friend Requests</h4>
+          {% for fr in user.received_requests if fr.status == 'pending' %}
+            <div style="margin-bottom: 1em;">
+              <p>{{ fr.sender.username }} sent you a friend request.</p>
+              <form method="POST" action="{{ url_for('main.accept_friend_request', request_id=fr.id) }}" style="display: inline;">
+                {{ form.hidden_tag() }}
+                <button type="submit">Accept</button>
+              </form>
+              <form method="POST" action="{{ url_for('main.reject_friend_request', request_id=fr.id) }}" style="display: inline;">
+                {{ form.hidden_tag() }}
+                <button type="submit">Reject</button>
+              </form>
+            </div>
+          {% else %}
+            <p>No pending friend requests.</p>
+          {% endfor %}
+        {% endif %}
+
+      {% elif current_user not in user.friend_of %}
+        <form method="POST" action="{{ url_for('main.send_friend_request', user_id=user.id) }}">
+          {{ form.hidden_tag() }}
+          <button type="submit" class="btn">Send Friend Request</button>
+        </form>
+      {% endif %}
+
+      <p><strong>Friends:</strong> {{ user.friends|length }}</p>
+
+      {% if mutual_friends %}
+        <p><strong>Mutual Friends:</strong> {{ mutual_friends|length }}</p>
+        <ul>
+          {% for friend in mutual_friends %}
+            <li>{{ friend.username }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+
+      {% if user.friends %}
+        <h4>Friend List:</h4>
+        <ul>
+          {% for friend in user.friends %}
+            <li>{{ friend.username }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    </div>
+  </div>
 {% endblock %}

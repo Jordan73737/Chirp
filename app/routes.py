@@ -1,11 +1,10 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request
-from app.forms import RegisterForm, LoginForm, LikeForm
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
+from app.forms import RegisterForm, LoginForm, LikeForm, ProfileForm, PostForm, EmptyForm
 from app import db, login_manager
 from flask_login import login_user, logout_user, login_required, current_user
-from app.forms import PostForm
-from app.models import User, Post, Like
+from app.models import User, Post, Like, Profile, Friend, FriendRequest
 
-# Flask function to make routes work
+# main is the type of route that we will use, which is of type BluePrint (in-built flask Blueprint)
 main = Blueprint('main', __name__)
 
 @login_manager.user_loader
@@ -21,7 +20,91 @@ def settings():
 @main.route('/profile')
 @login_required
 def profile():
-    return render_template('profile.html', user=current_user)
+    form = EmptyForm()  # CSRF protection
+    mutual_friends = set(current_user.friends).intersection(current_user.friend_of)
+    return render_template('profile.html', user=current_user, form=form, mutual_friends=mutual_friends)
+
+
+@main.route('/profile/edit', methods=['GET', 'POST'])
+@login_required
+def edit_profile():
+    form = ProfileForm(obj=current_user.profile)
+
+    if form.validate_on_submit():
+        if not current_user.profile:
+            current_user.profile = Profile(user=current_user)
+
+        current_user.profile.bio = form.bio.data
+        current_user.profile.location = form.location.data
+        current_user.profile.website = form.website.data
+        current_user.profile.profile_pic = form.profile_pic.data
+
+        db.session.commit()
+        flash('Profile updated.', 'success')
+        return redirect(url_for('main.profile'))
+
+    return render_template('edit_profile.html', form=form)
+
+@main.route('/user/<int:user_id>')
+@login_required
+def view_user_profile(user_id):
+    user = User.query.get_or_404(user_id)
+    form = EmptyForm()
+
+    mutual_friends = set(user.friends).intersection(current_user.friends)
+
+    return render_template('profile.html', user=user, form=form, mutual_friends=mutual_friends)
+
+
+@main.route('/friend_request/send/<int:user_id>', methods=['POST'])
+@login_required
+def send_friend_request(user_id):
+    if user_id == current_user.id:
+        flash("You can't send a friend request to yourself.", "warning")
+        return redirect(url_for('main.profile'))
+
+    existing_request = FriendRequest.query.filter_by(sender_id=current_user.id, receiver_id=user_id).first()
+    if existing_request:
+        flash("Friend request already sent.", "info")
+    else:
+        new_request = FriendRequest(sender_id=current_user.id, receiver_id=user_id)
+        db.session.add(new_request)
+        db.session.commit()
+        flash("Friend request sent!", "success")
+
+    return redirect(url_for('main.profile'))
+
+
+@main.route('/friend_request/accept/<int:request_id>', methods=['POST'])
+@login_required
+def accept_friend_request(request_id):
+    friend_request = FriendRequest.query.get_or_404(request_id)
+    if friend_request.receiver_id != current_user.id:
+        flash("Unauthorized.", "danger")
+        return redirect(url_for('main.profile'))
+
+    # Accept and create friendship
+    friend_request.status = 'accepted'
+    db.session.add(Friend(user_id=friend_request.sender_id, friend_id=friend_request.receiver_id))
+    db.session.add(Friend(user_id=friend_request.receiver_id, friend_id=friend_request.sender_id))
+    db.session.commit()
+    flash("Friend request accepted.", "success")
+    return redirect(url_for('main.profile'))
+
+
+@main.route('/friend_request/reject/<int:request_id>', methods=['POST'])
+@login_required
+def reject_friend_request(request_id):
+    friend_request = FriendRequest.query.get_or_404(request_id)
+    if friend_request.receiver_id != current_user.id:
+        flash("Unauthorized.", "danger")
+        return redirect(url_for('main.profile'))
+
+    friend_request.status = 'rejected'
+    db.session.commit()
+    flash("Friend request rejected.", "info")
+    return redirect(url_for('main.profile'))
+
 
 @main.route('/')
 def index():
@@ -168,3 +251,26 @@ def like_post(post_id):
     db.session.commit()
     return redirect(url_for('main.feed'))
 
+
+@main.route('/user/<int:user_id>')
+@login_required
+def view_user(user_id):
+    user = User.query.get_or_404(user_id)
+
+    if user.id == current_user.id:
+        return redirect(url_for('main.profile'))
+
+    mutual_friends = list(set(current_user.friends) & set(user.friends))
+
+    return render_template('profile.html', user=user, mutual_friends=mutual_friends)
+
+
+@main.route('/search_users')
+@login_required
+def search_users():
+    query = request.args.get('q', '')
+    results = []
+    if query:
+        users = User.query.filter(User.username.ilike(f"%{query}%")).limit(10).all()
+        results = [{"id": user.id, "username": user.username} for user in users if user.id != current_user.id]
+    return jsonify(results)
