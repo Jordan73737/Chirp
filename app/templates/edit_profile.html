@@ -4,8 +4,8 @@
 
 {% block content %}
   <h2>Edit Your Profile</h2>
-
-  <form method="POST">
+  
+  <form method="POST" enctype="multipart/form-data">
     {{ form.hidden_tag() }}
 
     <p>{{ form.bio.label }}<br>{{ form.bio(rows=4, cols=50) }}</p>

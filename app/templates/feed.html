@@ -3,6 +3,7 @@
 {% block title %}Feed{% endblock %}
 
 {% block content %}
+<div class="form-container">
   <h2>Welcome, {{ user.username }}!</h2>
 
   <!-- User Search -->
@@ -55,7 +56,7 @@
 
   <hr>
 
-  {% for post in posts %}
+  {% for post in posts if not post.parent_id %}
     <div style="margin-bottom: 1.5em;">
       <strong>{{ post.author.username }}</strong>
       <small style="color: gray;">— {{ post.timestamp.strftime('%Y-%m-%d %H:%M') }}</small>
@@ -68,7 +69,7 @@
           <span style="color: {% if post.id in liked_post_ids %}red{% else %}gray{% endif %};">
             {% if post.id in liked_post_ids %}❤️{% else %}🤍{% endif %}
           </span>
-          {{ post.likes|length }}
+          <span style="color: black; font-weight: bold; margin-left: 0.3em;">{{ post.likes|length }}</span>
         </button>
       </form>
 
@@ -80,9 +81,25 @@
           <button type="submit" onclick="return confirm('Delete this post?')">Delete</button>
         </form>
       {% endif %}
+
+      <!-- Reply Button -->
+      <a href="{{ url_for('main.reply', post_id=post.id) }}" style="margin-left: 1em;">Reply</a>
+
+
+      <!-- Replies -->
+      {% for reply in post.replies %}
+        <div style="margin-left: 2em; border-left: 2px solid #ccc; padding-left: 1em; margin-top: 0.5em;">
+          <strong>{{ reply.author.username }}</strong>
+          <small style="color: gray;">— {{ reply.timestamp.strftime('%Y-%m-%d %H:%M') }}</small>
+          <p>{{ reply.content }}</p>
+        </div>
+      {% endfor %}
+
       <hr>
     </div>
   {% else %}
     <p>No posts yet.</p>
   {% endfor %}
+
+</div>
 {% endblock %}

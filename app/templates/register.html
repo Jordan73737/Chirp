@@ -1,11 +1,21 @@
-{% extends 'base.html' %} {% block title %}Register{% endblock %} {% block
-content %}
-<h2>Register</h2>
-<form method="POST">
-  {{ form.hidden_tag() }} {{ form.username.label }} {{ form.username() }}<br />
-  {{ form.email.label }} {{ form.email() }}<br />
-  {{ form.password.label }} {{ form.password() }}<br />
-  {{ form.confirm_password.label }} {{ form.confirm_password() }}<br />
-  {{ form.submit() }}
-</form>
+{% extends "base.html" %}
+{% block title %}Register{% endblock %}
+
+{% block content %}
+<div class="form-container">
+  <h2>Create Your Account</h2>
+  <form method="POST">
+    {{ form.hidden_tag() }}
+    <div class="form-group">{{ form.username.label }} {{ form.username() }}</div>
+    <div class="form-group">{{ form.email.label }} {{ form.email() }}</div>
+    <div class="form-group">{{ form.password.label }} {{ form.password() }}</div>
+    <div class="form-group">{{ form.confirm_password.label }} {{ form.confirm_password() }}</div>
+    <div class="form-group">{{ form.submit() }}</div>
+  </form>
+
+  <p style="text-align: center; margin-top: 1em;">
+    Already have an account?
+    <a href="{{ url_for('main.login') }}">Log in here</a>.
+  </p>
+</div>
 {% endblock %}

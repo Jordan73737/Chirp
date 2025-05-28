@@ -3,6 +3,10 @@ from app.forms import RegisterForm, LoginForm, LikeForm, ProfileForm, PostForm, 
 from app import db, login_manager
 from flask_login import login_user, logout_user, login_required, current_user
 from app.models import User, Post, Like, Profile, Friend, FriendRequest
+import os
+from werkzeug.utils import secure_filename
+from flask import current_app
+
 
 # main is the type of route that we will use, which is of type BluePrint (in-built flask Blueprint)
 main = Blueprint('main', __name__)
@@ -25,25 +29,59 @@ def profile():
     return render_template('profile.html', user=current_user, form=form, mutual_friends=mutual_friends)
 
 
+
+
+from PIL import Image
+
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def resize_and_save(image, filepath, max_size=(300, 300)):
+    img = Image.open(image)
+    img = img.convert("RGB")
+    img.thumbnail(max_size)
+    img.save(filepath, format='JPEG')
+
 @main.route('/profile/edit', methods=['GET', 'POST'])
 @login_required
 def edit_profile():
-    form = ProfileForm(obj=current_user.profile)
+    form = ProfileForm()
 
     if form.validate_on_submit():
         if not current_user.profile:
-            current_user.profile = Profile(user=current_user)
+            profile = Profile(user=current_user)
+            db.session.add(profile)
+        else:
+            profile = current_user.profile
 
-        current_user.profile.bio = form.bio.data
-        current_user.profile.location = form.location.data
-        current_user.profile.website = form.website.data
-        current_user.profile.profile_pic = form.profile_pic.data
+        profile.bio = form.bio.data
+        profile.location = form.location.data
+        profile.website = form.website.data
+
+        if form.profile_pic.data:
+            uploaded_file = form.profile_pic.data
+            if allowed_file(uploaded_file.filename):
+                filename = secure_filename(uploaded_file.filename)
+                filepath = os.path.join(current_app.root_path, 'static/uploads', filename)
+                resize_and_save(uploaded_file, filepath)
+                profile.profile_pic = filename
+            else:
+                flash("Invalid file type. Please upload an image (jpg, png, gif).", "danger")
+                return redirect(request.url)
 
         db.session.commit()
         flash('Profile updated.', 'success')
         return redirect(url_for('main.profile'))
 
+    if request.method == 'GET' and current_user.profile:
+        form.bio.data = current_user.profile.bio
+        form.location.data = current_user.profile.location
+        form.website.data = current_user.profile.website
+
     return render_template('edit_profile.html', form=form)
+
 
 @main.route('/user/<int:user_id>')
 @login_required
@@ -274,3 +312,17 @@ def search_users():
         users = User.query.filter(User.username.ilike(f"%{query}%")).limit(10).all()
         results = [{"id": user.id, "username": user.username} for user in users if user.id != current_user.id]
     return jsonify(results)
+
+
+@main.route('/reply/<int:post_id>', methods=['GET', 'POST'])
+@login_required
+def reply(post_id):
+    parent_post = Post.query.get_or_404(post_id)
+    form = PostForm()
+    if form.validate_on_submit():
+        reply = Post(content=form.content.data, user_id=current_user.id, parent=parent_post)
+        db.session.add(reply)
+        db.session.commit()
+        flash('Reply posted!', 'success')
+        return redirect(url_for('main.feed'))
+    return render_template('reply.html', form=form, parent=parent_post)

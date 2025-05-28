@@ -7,19 +7,22 @@
   </head>
   <body>
     <!-- Navbar -->
-    <nav class="navbar">
-      <div class="navbar-container">
-        <div class="navbar-logo">
-          <a href="{{ url_for('main.feed') }}">🐦 Chirp</a>
+    <nav style="background-color: #1da1f2; padding: 1em 0; text-align: center;">
+      {% if current_user.is_authenticated %}
+        <div style="display: flex; justify-content: space-between; max-width: 800px; margin: 0 auto; align-items: center;">
+          <div style="color: white; font-weight: bold; font-size: 1.5em;">🐦 Chirp</div>
+          <div>
+            <a href="{{ url_for('main.feed') }}" style="color: white; margin: 0 1em;">Feed</a>
+            <a href="{{ url_for('main.profile') }}" style="color: white; margin: 0 1em;">Profile</a>
+            <a href="{{ url_for('main.settings') }}" style="color: white; margin: 0 1em;">Settings</a>
+            <a href="{{ url_for('main.logout') }}" style="color: white; margin: 0 1em;">Logout</a>
+          </div>
         </div>
-        <ul class="navbar-links">
-          <li><a href="{{ url_for('main.feed') }}">Feed</a></li>
-          <li><a href="{{ url_for('main.profile') }}">Profile</a></li>
-          <li><a href="{{ url_for('main.settings') }}">Settings</a></li>
-          <li><a href="{{ url_for('main.logout') }}">Logout</a></li>
-        </ul>
-      </div>
+      {% else %}
+        <div style="color: white; font-weight: bold; font-size: 1.5em;">🐦 Chirp</div>
+      {% endif %}
     </nav>
+
 
     <hr />
     {% with messages = get_flashed_messages(with_categories=true) %} {% for

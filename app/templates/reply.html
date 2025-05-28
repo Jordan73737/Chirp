@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+  <div class="form-container">
+  <h3>Reply to {{ parent.author.username }}:</h3>
+    <p><em>{{ parent.content }}</em></p>
+
+    <form method="POST">
+      {{ form.hidden_tag() }}
+      {{ form.content.label }}<br>
+      {{ form.content(size=40) }}<br>
+      {{ form.submit() }}
+    </form>
+  </div>
+{% endblock %}

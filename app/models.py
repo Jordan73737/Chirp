@@ -1,6 +1,7 @@
 from app import db
 from flask_login import UserMixin
 from datetime import datetime
+from sqlalchemy.orm import backref
 
 # User model
 class User(db.Model, UserMixin):
@@ -54,17 +55,21 @@ class Friend(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     friend_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
+
 class Post(db.Model):
-    __tablename__ = 'posts'
-    
+    __tablename__ = 'posts'  
+
     id = db.Column(db.Integer, primary_key=True)
     content = db.Column(db.Text, nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
-    likes = db.relationship('Like', backref='post', lazy=True, cascade='all, delete-orphan')
-    reposts = db.relationship('Repost', backref='post', lazy=True, cascade='all, delete-orphan')
+    # Replies
+    parent_id = db.Column(db.Integer, db.ForeignKey('posts.id'), nullable=True)
+    replies = db.relationship('Post', backref=backref('parent', remote_side=[id]), lazy='dynamic')
 
+    def is_reply(self):
+        return self.parent_id is not None
 
 
 

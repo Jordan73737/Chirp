@@ -1,6 +1,7 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField, TextAreaField
 from wtforms.validators import DataRequired, Email, EqualTo, Length, URL, Optional
+from flask_wtf.file import FileField, FileAllowed
 
 
 class EmptyForm(FlaskForm):
@@ -24,13 +25,13 @@ class LoginForm(FlaskForm):
     submit = SubmitField('Login')
 
 class PostForm(FlaskForm):
-    content = TextAreaField('What’s happening?', validators=[DataRequired(), Length(max=280)])
+    content = TextAreaField('Chirp:', validators=[DataRequired(), Length(max=280)])
     submit = SubmitField('Chirp')
 
-
 class ProfileForm(FlaskForm):
-    bio = StringField('Bio', validators=[Length(max=300), Optional()])
-    location = StringField('Location', validators=[Length(max=100), Optional()])
-    website = StringField('Website', validators=[URL(), Optional()])
-    profile_pic = StringField('Profile Picture URL', validators=[URL(), Optional()])
-    submit = SubmitField('Update Profile')
+    bio = TextAreaField('Bio')
+    location = StringField('Location')
+    website = StringField('Website')
+    profile_pic = FileField('Profile Picture', validators=[FileAllowed(['jpg', 'png', 'jpeg'], 'Images only!')])
+    submit = SubmitField('Save')
+
