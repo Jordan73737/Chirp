@@ -66,7 +66,9 @@ class Post(db.Model):
 
     # Replies
     parent_id = db.Column(db.Integer, db.ForeignKey('posts.id'), nullable=True)
-    replies = db.relationship('Post', backref=backref('parent', remote_side=[id]), lazy='dynamic')
+    replies = db.relationship('Post', backref=db.backref('parent', remote_side=[id]), cascade="all, delete-orphan", lazy='joined')
+    likes = db.relationship('Like', backref='post', lazy='select')
+    deleted = db.Column(db.Boolean, default=False)
 
     def is_reply(self):
         return self.parent_id is not None

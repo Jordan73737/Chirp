@@ -56,11 +56,56 @@
 
   <hr>
 
+  <!-- Recursive Macro for Replies -->
+  {% macro render_replies(replies) %}
+    {% for reply in replies %}
+      <div style="margin-left: 2em; border-left: 2px solid #ccc; padding-left: 1em; margin-top: 0.5em;">
+        <strong>{{ reply.author.username }}</strong>
+        <small style="color: gray;">— {{ reply.timestamp.strftime('%Y-%m-%d %H:%M') }}</small>
+        {% if reply.deleted %}
+          <p style="color: gray; font-style: italic;">This post has been deleted.</p>
+        {% else %}
+          <p>{{ reply.content }}</p>
+        {% endif %}
+
+
+        <!-- Like Button -->
+        <form method="POST" action="{{ url_for('main.like_post', post_id=reply.id) }}" style="display:inline;">
+          {{ like_form.hidden_tag() }}
+          <button type="submit" style="background: none; border: none; font-size: 1.2em;">
+            <span style="color: {% if reply.id in liked_post_ids %}red{% else %}gray{% endif %};">
+              {% if reply.id in liked_post_ids %}❤️{% else %}🤍{% endif %}
+            </span>
+            <span style="color: black; font-weight: bold; margin-left: 0.3em;">{{ reply.likes|length or 0 }}</span>
+          </button>
+        </form>
+
+        {% if reply.author.id == current_user.id %}
+          <form method="POST" action="{{ url_for('main.delete_post', post_id=reply.id) }}" style="display: inline;">
+            {{ like_form.hidden_tag() }}
+            <button type="submit" onclick="return confirm('Delete this reply?')">Delete</button>
+          </form>
+        {% endif %}
+
+        <a href="{{ url_for('main.reply', post_id=reply.id) }}" style="margin-left: 1em;">Reply</a>
+
+        <!-- Recursive Replies -->
+        {{ render_replies(reply.replies) }}
+      </div>
+    {% endfor %}
+  {% endmacro %}
+
+  <!-- Top-Level Posts -->
   {% for post in posts if not post.parent_id %}
     <div style="margin-bottom: 1.5em;">
       <strong>{{ post.author.username }}</strong>
       <small style="color: gray;">— {{ post.timestamp.strftime('%Y-%m-%d %H:%M') }}</small>
-      <p>{{ post.content }}</p>
+      {% if post.deleted %}
+        <p style="color: gray; font-style: italic;">This post has been deleted.</p>
+      {% else %}
+        <p>{{ post.content }}</p>
+      {% endif %}
+
 
       <!-- Like Button -->
       <form method="POST" action="{{ url_for('main.like_post', post_id=post.id) }}" style="display:inline;">
@@ -69,11 +114,10 @@
           <span style="color: {% if post.id in liked_post_ids %}red{% else %}gray{% endif %};">
             {% if post.id in liked_post_ids %}❤️{% else %}🤍{% endif %}
           </span>
-          <span style="color: black; font-weight: bold; margin-left: 0.3em;">{{ post.likes|length }}</span>
+          <span style="color: black; font-weight: bold; margin-left: 0.3em;">{{ post.likes|length or 0 }}</span>
         </button>
       </form>
 
-      <!-- Edit/Delete -->
       {% if post.author.id == current_user.id %}
         <a href="{{ url_for('main.edit_post', post_id=post.id) }}">Edit</a>
         <form method="POST" action="{{ url_for('main.delete_post', post_id=post.id) }}" style="display: inline;">
@@ -82,24 +126,15 @@
         </form>
       {% endif %}
 
-      <!-- Reply Button -->
       <a href="{{ url_for('main.reply', post_id=post.id) }}" style="margin-left: 1em;">Reply</a>
 
-
-      <!-- Replies -->
-      {% for reply in post.replies %}
-        <div style="margin-left: 2em; border-left: 2px solid #ccc; padding-left: 1em; margin-top: 0.5em;">
-          <strong>{{ reply.author.username }}</strong>
-          <small style="color: gray;">— {{ reply.timestamp.strftime('%Y-%m-%d %H:%M') }}</small>
-          <p>{{ reply.content }}</p>
-        </div>
-      {% endfor %}
+      <!-- Render Nested Replies -->
+      {{ render_replies(post.replies) }}
 
       <hr>
     </div>
   {% else %}
     <p>No posts yet.</p>
   {% endfor %}
-
 </div>
 {% endblock %}

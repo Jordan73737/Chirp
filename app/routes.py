@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, abort
 from app.forms import RegisterForm, LoginForm, LikeForm, ProfileForm, PostForm, EmptyForm
 from app import db, login_manager
 from flask_login import login_user, logout_user, login_required, current_user
@@ -225,8 +225,11 @@ def feed():
         flash('Your post has been created!', 'success')
         return redirect(url_for('main.feed'))
 
-    posts = Post.query.order_by(Post.timestamp.desc()).all()
-    liked_post_ids = {like.post_id for like in current_user.likes}
+    posts = Post.query.filter_by(parent_id=None).order_by(Post.timestamp.desc()).all()
+
+    
+    liked_post_ids = [like.post_id for like in current_user.likes]
+
 
     return render_template(
         'feed.html',
@@ -258,18 +261,18 @@ def edit_post(post_id):
     return render_template('edit_post.html', form=form)
 
 
-@main.route('/post/<int:post_id>/delete', methods=['POST'])
+@main.route('/delete_post/<int:post_id>', methods=['POST'])
 @login_required
 def delete_post(post_id):
     post = Post.query.get_or_404(post_id)
     if post.author != current_user:
-        flash("You can't delete this post.", 'danger')
-        return redirect(url_for('main.feed'))
-
-    db.session.delete(post)
+        abort(403)
+    post.deleted = True
     db.session.commit()
-    flash('Post deleted.', 'info')
+    flash('Post deleted', 'info')
     return redirect(url_for('main.feed'))
+
+
 
 
 @main.route('/post/<int:post_id>/like', methods=['POST'])
