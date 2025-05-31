@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block title %}Private Profile{% endblock %}
+
+{% block content %}
+  <div class="form-container" style="text-align: center;">
+    <h2>{{ username }}</h2>
+    {% if profile_picture %}
+      <img src="{{ url_for('static', filename='uploads/' ~ profile_picture) }}" alt="Profile Picture" class="avatar">
+    {% else %}
+      <img src="{{ url_for('static', filename='Profile_avatar_placeholder_large.png') }}" alt="Default Profile Picture" class="avatar">
+    {% endif %}
+    <p>This profile is private.</p>
+
+    {% if current_user.id != user.id %}
+      <form method="POST" action="{{ url_for('main.send_friend_request', user_id=user.id) }}">
+        {{ form.hidden_tag() }}
+        <button type="submit">Send Friend Request</button>
+      </form>
+    {% endif %}
+  </div>
+{% endblock %}

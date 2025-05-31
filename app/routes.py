@@ -15,18 +15,55 @@ main = Blueprint('main', __name__)
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-@main.route('/settings')
+@main.route('/settings', methods=['GET', 'POST'])
 @login_required
 def settings():
-    return render_template('settings.html', user=current_user)
+    form = ProfileForm()
+
+    # Ensure profile exists for current user
+    if not current_user.profile:
+        current_user.profile = Profile(user_id=current_user.id)
+        db.session.add(current_user.profile)
+        db.session.commit()
+
+    profile = current_user.profile # Profile is then guaranteed to exist after doing thr above
+
+
+    if form.validate_on_submit():
+        # Update standard profile fields
+        profile.bio = form.bio.data
+        profile.location = form.location.data
+        profile.website = form.website.data
+
+        # Get selected privacy level from form (radio buttons)
+        selected_privacy = request.form.get('privacy_level')
+        if selected_privacy is not None:
+            profile.privacy_level = int(selected_privacy)
+
+        db.session.commit()
+        flash('Settings updated.', 'success')
+        return redirect(url_for('main.settings'))
+
+    # Pre-fill form fields
+    form.bio.data = profile.bio
+    form.location.data = profile.location
+    form.website.data = profile.website
+
+    return render_template('settings.html', form=form, profile=profile)
 
 
 @main.route('/profile')
 @login_required
 def profile():
-    form = EmptyForm()  # CSRF protection
+    form = EmptyForm()
     mutual_friends = set(current_user.friends).intersection(current_user.friend_of)
-    return render_template('profile.html', user=current_user, form=form, mutual_friends=mutual_friends)
+    return render_template(
+        'profile.html',
+        user=current_user,
+        form=form,
+        mutual_friends=mutual_friends,
+        can_view_full_profile=True  
+    )
 
 
 
@@ -82,16 +119,6 @@ def edit_profile():
 
     return render_template('edit_profile.html', form=form)
 
-
-@main.route('/user/<int:user_id>')
-@login_required
-def view_user_profile(user_id):
-    user = User.query.get_or_404(user_id)
-    form = EmptyForm()
-
-    mutual_friends = set(user.friends).intersection(current_user.friends)
-
-    return render_template('profile.html', user=user, form=form, mutual_friends=mutual_friends)
 
 
 @main.route('/friend_request/send/<int:user_id>', methods=['POST'])
@@ -298,12 +325,49 @@ def like_post(post_id):
 def view_user(user_id):
     user = User.query.get_or_404(user_id)
 
+    # Ensure profile exists
+    if not user.profile:
+        user.profile = Profile(user_id=user.id)
+        db.session.add(user.profile)
+        db.session.commit()
+
+    profile = user.profile
+    form = ProfileForm()
+
+    # Always allow full access to your own profile
     if user.id == current_user.id:
-        return redirect(url_for('main.profile'))
+        can_view_full_profile = True
+    else:
+        is_friend = Friend.query.filter_by(user_id=current_user.id, friend_id=user.id).first()
+
+        # Apply privacy rules
+        if profile.privacy_level == 2:
+            can_view_full_profile = False
+        elif profile.privacy_level == 1 and not is_friend:
+            can_view_full_profile = False
+        else:
+            can_view_full_profile = True
+
+        if not can_view_full_profile:
+            return render_template(
+                'private_profile.html',
+                username=user.username,
+                profile_picture=profile.profile_pic,
+                user=user,
+                form=form
+            )
 
     mutual_friends = list(set(current_user.friends) & set(user.friends))
 
-    return render_template('profile.html', user=user, mutual_friends=mutual_friends)
+    return render_template(
+        'profile.html',
+        user=user,
+        profile=profile,
+        mutual_friends=mutual_friends,
+        can_view_full_profile=True,
+        form=form
+    )
+
 
 
 @main.route('/search_users')
@@ -329,3 +393,22 @@ def reply(post_id):
         flash('Reply posted!', 'success')
         return redirect(url_for('main.feed'))
     return render_template('reply.html', form=form, parent=parent_post)
+
+
+
+@main.route('/delete_account')
+@login_required
+def delete_account():
+    user = current_user
+
+    # delete related content first if needed
+    Post.query.filter_by(user_id=user.id).delete()
+    Profile.query.filter_by(user_id=user.id).delete()
+    Friend.query.filter((Friend.user_id == user.id) | (Friend.friend_id == user.id)).delete()
+    FriendRequest.query.filter((FriendRequest.from_user_id == user.id) | (FriendRequest.to_user_id == user.id)).delete()
+
+    db.session.delete(user)
+    db.session.commit()
+    logout_user()
+
+    return render_template('account_deleted.html')

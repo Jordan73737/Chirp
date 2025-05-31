@@ -4,5 +4,46 @@
 
 {% block content %}
   <h2>Settings</h2>
-  <p>Settings page coming soon.</p>
+
+  <h3>Privacy Settings</h3>
+  <p>If your profile is private, only your username and profile picture will be visible to others.</p>
+
+  <form method="POST" action="{{ url_for('main.settings') }}">
+    {{ form.hidden_tag() }}
+
+  <label>
+    <input type="radio" name="privacy_level" value="0"
+      {% if profile.privacy_level is equalto 0 %}checked{% endif %}>
+    Public – Everyone can view your full profile.
+  </label><br>
+
+  <label>
+    <input type="radio" name="privacy_level" value="1"
+      {% if profile.privacy_level is equalto 1 %}checked{% endif %}>
+    Private to Non-Friends – Only friends can view your full profile.
+  </label><br>
+
+  <label>
+    <input type="radio" name="privacy_level" value="2"
+      {% if profile.privacy_level is equalto 2 %}checked{% endif %}>
+    Fully Private – Only you can view your full profile.
+  </label><br>
+
+
+    {{ form.submit() }}
+  </form>
+
+
+  <button onclick="confirmDelete()">Delete My Account</button>
+
+  <script>
+    function confirmDelete() {
+      if (confirm("Are you sure you want to delete your account?")) {
+        if (confirm("Are you absolutely sure? This cannot be undone.")) {
+          window.location.href = "{{ url_for('main.delete_account') }}";
+        }
+      }
+    }
+  </script>
+
 {% endblock %}

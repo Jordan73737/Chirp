@@ -47,6 +47,10 @@ class Profile(db.Model):
     location = db.Column(db.String(100))
     website = db.Column(db.String(100))
 
+    # 0 = Public, 1 = Friends Only, 2 = Private
+    privacy_level = db.Column(db.Integer, default=0)
+    
+
 # Friend (Many-to-Many using association table)
 class Friend(db.Model):
     __tablename__ = 'friends'

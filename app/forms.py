@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SubmitField, TextAreaField
+from wtforms import StringField, PasswordField, SubmitField, TextAreaField, SelectField
 from wtforms.validators import DataRequired, Email, EqualTo, Length, URL, Optional
 from flask_wtf.file import FileField, FileAllowed
 
@@ -34,4 +34,14 @@ class ProfileForm(FlaskForm):
     website = StringField('Website')
     profile_pic = FileField('Profile Picture', validators=[FileAllowed(['jpg', 'png', 'jpeg'], 'Images only!')])
     submit = SubmitField('Save')
+
+
+class SettingsForm(FlaskForm):
+    ...
+    privacy_level = SelectField('Profile Privacy', choices=[
+        ('0', 'Public'),
+        ('1', 'Friends Only'),
+        ('2', 'Private')
+    ])
+    submit = SubmitField('Save Settings')
 
