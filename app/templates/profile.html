@@ -18,13 +18,13 @@
     <div class="username">{{ user.username }}</div>
 
     {% if can_view_full_profile %}
-      {% if user.profile and user.profile.bio %}
+      {% if user.profile.bio %}
         <div class="bio">{{ user.profile.bio }}</div>
       {% endif %}
-      {% if user.profile and user.profile.location %}
+      {% if user.profile.location %}
         <div class="location">📍 {{ user.profile.location }}</div>
       {% endif %}
-      {% if user.profile and user.profile.website %}
+      {% if user.profile.website %}
         <div class="website">🔗 <a href="{{ user.profile.website }}" target="_blank">{{ user.profile.website }}</a></div>
       {% endif %}
 
@@ -51,11 +51,18 @@
             {% endfor %}
           {% endif %}
 
-        {% elif current_user not in user.friend_of %}
-          <form method="POST" action="{{ url_for('main.send_friend_request', user_id=user.id) }}">
-            {{ form.hidden_tag() }}
-            <button type="submit" class="btn">Send Friend Request</button>
-          </form>
+          {% if user.sent_requests %}
+            <h4>Pending Friend Requests You Sent</h4>
+            {% for fr in user.sent_requests if fr.status == 'pending' %}
+              <div style="margin-bottom: 0.5em;">
+                {{ fr.receiver.username }}
+                <form method="POST" action="{{ url_for('main.cancel_friend_request', user_id=fr.receiver.id) }}" style="display:inline;">
+                  {{ form.hidden_tag() }}
+                  <button type="submit" class="btn btn-danger" style="margin-left: 10px;">Cancel Request</button>
+                </form>
+              </div>
+            {% endfor %}
+          {% endif %}
         {% endif %}
       </div>
 
@@ -80,10 +87,47 @@
           {% endfor %}
         </ul>
       {% endif %}
-    
     {% else %}
       <p>This profile is private. Only the username and profile picture are visible.</p>
     {% endif %}
+
+    <!-- ✅ Always show the friend request section for non-self users -->
+    {% if current_user.id != user.id %}
+      <div id="friend-request-section">
+        {% include "_friend_request_buttons.html" %}
+      </div>
+    {% endif %}
   </div>
 </div>
+
+<!-- ✅ JavaScript for AJAX functionality -->
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const section = document.getElementById("friend-request-section");
+    if (!section) return;
+
+    section.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const url = form.action;
+      const method = form.method;
+      const formData = new FormData(form);
+
+      const response = await fetch(url, {
+        method: method,
+        body: formData,
+        headers: {
+          "X-Requested-With": "XMLHttpRequest"
+        }
+      });
+
+      if (response.ok) {
+        const html = await response.text();
+        section.innerHTML = html;
+      } else {
+        alert("Something went wrong.");
+      }
+    });
+  });
+</script>
 {% endblock %}

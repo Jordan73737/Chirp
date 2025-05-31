@@ -34,7 +34,8 @@
   </form>
 
 
-  <button onclick="confirmDelete()">Delete My Account</button>
+  <a href="{{ url_for('main.delete_account') }}" class="btn btn-danger">Delete My Account</a>
+
 
   <script>
     function confirmDelete() {

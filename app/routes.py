@@ -6,6 +6,7 @@ from app.models import User, Post, Like, Profile, Friend, FriendRequest
 import os
 from werkzeug.utils import secure_filename
 from flask import current_app
+from PIL import Image
 
 
 # main is the type of route that we will use, which is of type BluePrint (in-built flask Blueprint)
@@ -66,10 +67,6 @@ def profile():
     )
 
 
-
-
-from PIL import Image
-
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
 def allowed_file(filename):
@@ -124,20 +121,30 @@ def edit_profile():
 @main.route('/friend_request/send/<int:user_id>', methods=['POST'])
 @login_required
 def send_friend_request(user_id):
+    user = User.query.get_or_404(user_id)
     if user_id == current_user.id:
-        flash("You can't send a friend request to yourself.", "warning")
-        return redirect(url_for('main.profile'))
-
+        return "Cannot send request to yourself", 400
     existing_request = FriendRequest.query.filter_by(sender_id=current_user.id, receiver_id=user_id).first()
-    if existing_request:
-        flash("Friend request already sent.", "info")
-    else:
+    if not existing_request:
         new_request = FriendRequest(sender_id=current_user.id, receiver_id=user_id)
         db.session.add(new_request)
         db.session.commit()
-        flash("Friend request sent!", "success")
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return render_template('_friend_request_buttons.html', user=user, form=EmptyForm())
+    return redirect(url_for('main.view_user', user_id=user_id))
 
-    return redirect(url_for('main.profile'))
+@main.route('/cancel_friend_request/<int:user_id>', methods=['POST'])
+@login_required
+def cancel_friend_request(user_id):
+    request_to_cancel = FriendRequest.query.filter_by(sender_id=current_user.id, receiver_id=user_id, status='pending').first()
+    if request_to_cancel:
+        db.session.delete(request_to_cancel)
+        db.session.commit()
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        user = User.query.get_or_404(user_id)
+        return render_template('_friend_request_buttons.html', user=user, form=EmptyForm())
+    return redirect(url_for('main.view_user', user_id=user_id))
+
 
 
 @main.route('/friend_request/accept/<int:request_id>', methods=['POST'])
@@ -337,6 +344,7 @@ def view_user(user_id):
     # Always allow full access to your own profile
     if user.id == current_user.id:
         can_view_full_profile = True
+        already_sent = False  # You can't send yourself a request
     else:
         is_friend = Friend.query.filter_by(user_id=current_user.id, friend_id=user.id).first()
 
@@ -348,15 +356,25 @@ def view_user(user_id):
         else:
             can_view_full_profile = True
 
+        # Check if friend request already sent and pending
+        existing_request = FriendRequest.query.filter_by(
+            sender_id=current_user.id,
+            receiver_id=user.id,
+            status='pending'
+        ).first()
+        already_sent = existing_request is not None
+
+        # Handle private profile view
         if not can_view_full_profile:
             return render_template(
                 'private_profile.html',
                 username=user.username,
                 profile_picture=profile.profile_pic,
                 user=user,
-                form=form
+                form=EmptyForm() 
             )
 
+    # Calculate mutual friends
     mutual_friends = list(set(current_user.friends) & set(user.friends))
 
     return render_template(
@@ -364,10 +382,10 @@ def view_user(user_id):
         user=user,
         profile=profile,
         mutual_friends=mutual_friends,
-        can_view_full_profile=True,
+        can_view_full_profile=can_view_full_profile,
+        already_sent=already_sent,
         form=form
     )
-
 
 
 @main.route('/search_users')
@@ -395,20 +413,36 @@ def reply(post_id):
     return render_template('reply.html', form=form, parent=parent_post)
 
 
-
-@main.route('/delete_account')
+@main.route('/delete_account', methods=['GET', 'POST'])
 @login_required
 def delete_account():
-    user = current_user
+    form = EmptyForm()
 
-    # delete related content first if needed
-    Post.query.filter_by(user_id=user.id).delete()
-    Profile.query.filter_by(user_id=user.id).delete()
-    Friend.query.filter((Friend.user_id == user.id) | (Friend.friend_id == user.id)).delete()
-    FriendRequest.query.filter((FriendRequest.from_user_id == user.id) | (FriendRequest.to_user_id == user.id)).delete()
+    if form.validate_on_submit():
+        user = current_user  # Save reference before logout
 
-    db.session.delete(user)
-    db.session.commit()
-    logout_user()
+        # Delete related FriendRequests
+        FriendRequest.query.filter(
+            (FriendRequest.sender_id == user.id) | (FriendRequest.receiver_id == user.id)
+        ).delete()
 
-    return render_template('account_deleted.html')
+        # Delete friendships
+        Friend.query.filter(
+            (Friend.user_id == user.id) | (Friend.friend_id == user.id)
+        ).delete()
+
+        # Delete profile
+        if user.profile:
+            db.session.delete(user.profile)
+
+        # Delete user account
+        db.session.delete(user)
+        db.session.commit()
+        logout_user()
+
+        flash("Your account has been deleted.", "info")
+        return redirect(url_for('main.login'))
+
+    # Show confirmation page
+    return render_template('confirm_delete.html', form=form)
+

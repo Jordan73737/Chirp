@@ -1,0 +1,26 @@
+{% if user.id == current_user.id %}
+  <!-- No button for own profile -->
+
+{% elif user in current_user.friends %}
+  <button class="btn btn-secondary" disabled>Already Friends</button>
+
+{% else %}
+  {% set already_sent = user.received_requests
+    | selectattr("sender_id", "equalto", current_user.id)
+    | selectattr("status", "equalto", "pending")
+    | list %}
+
+  {% if already_sent %}
+    <button class="btn btn-success" disabled>SENT</button>
+    <form method="POST" action="{{ url_for('main.cancel_friend_request', user_id=user.id) }}">
+      {{ form.hidden_tag() }}
+      <button type="submit" class="btn btn-danger">Cancel Request</button>
+    </form>
+
+  {% else %}
+    <form method="POST" action="{{ url_for('main.send_friend_request', user_id=user.id) }}">
+      {{ form.hidden_tag() }}
+      <button type="submit" class="btn">Send Friend Request</button>
+    </form>
+  {% endif %}
+{% endif %}
