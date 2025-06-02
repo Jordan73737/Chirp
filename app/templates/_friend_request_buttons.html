@@ -11,10 +11,9 @@
     | list %}
 
   {% if already_sent %}
-    <button class="btn btn-success" disabled>SENT</button>
     <form method="POST" action="{{ url_for('main.cancel_friend_request', user_id=user.id) }}">
       {{ form.hidden_tag() }}
-      <button type="submit" class="btn btn-danger">Cancel Request</button>
+      <button type="submit" class="btn btn-danger">Cancel Friend Request</button>
     </form>
 
   {% else %}

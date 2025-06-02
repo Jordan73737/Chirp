@@ -143,7 +143,7 @@ def cancel_friend_request(user_id):
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         user = User.query.get_or_404(user_id)
         return render_template('_friend_request_buttons.html', user=user, form=EmptyForm())
-    return redirect(url_for('main.view_user', user_id=user_id))
+    return redirect(url_for('main.profile'))
 
 
 

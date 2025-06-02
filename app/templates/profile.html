@@ -58,7 +58,7 @@
                 {{ fr.receiver.username }}
                 <form method="POST" action="{{ url_for('main.cancel_friend_request', user_id=fr.receiver.id) }}" style="display:inline;">
                   {{ form.hidden_tag() }}
-                  <button type="submit" class="btn btn-danger" style="margin-left: 10px;">Cancel Request</button>
+                  <button type="submit" class="btn btn-danger" style="margin-left: 10px;">Cancel Friend Request</button>
                 </form>
               </div>
             {% endfor %}
