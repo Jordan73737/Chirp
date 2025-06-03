@@ -12,10 +12,12 @@
     <p>This profile is private.</p>
 
     {% if current_user.id != user.id %}
-      <form method="POST" action="{{ url_for('main.send_friend_request', user_id=user.id) }}">
-        {{ form.hidden_tag() }}
-        <button type="submit">Send Friend Request</button>
-      </form>
+      <div id="friend-request-section">
+        {% include "_friend_request_buttons.html" %}
+      </div>
     {% endif %}
   </div>
+  {% include "_friend_request_script.html" %}
 {% endblock %}
+
+

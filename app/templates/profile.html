@@ -91,7 +91,6 @@
       <p>This profile is private. Only the username and profile picture are visible.</p>
     {% endif %}
 
-    <!-- ✅ Always show the friend request section for non-self users -->
     {% if current_user.id != user.id %}
       <div id="friend-request-section">
         {% include "_friend_request_buttons.html" %}
@@ -99,35 +98,5 @@
     {% endif %}
   </div>
 </div>
-
-<!-- ✅ JavaScript for AJAX functionality -->
-<script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const section = document.getElementById("friend-request-section");
-    if (!section) return;
-
-    section.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const form = e.target;
-      const url = form.action;
-      const method = form.method;
-      const formData = new FormData(form);
-
-      const response = await fetch(url, {
-        method: method,
-        body: formData,
-        headers: {
-          "X-Requested-With": "XMLHttpRequest"
-        }
-      });
-
-      if (response.ok) {
-        const html = await response.text();
-        section.innerHTML = html;
-      } else {
-        alert("Something went wrong.");
-      }
-    });
-  });
-</script>
+{% include "_friend_request_script.html" %}
 {% endblock %}

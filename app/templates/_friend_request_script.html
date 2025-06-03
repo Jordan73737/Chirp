@@ -1,0 +1,29 @@
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const section = document.getElementById("friend-request-section");
+    if (!section) return;
+
+    section.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const url = form.action;
+      const method = form.method;
+      const formData = new FormData(form);
+
+      const response = await fetch(url, {
+        method: method,
+        body: formData,
+        headers: {
+          "X-Requested-With": "XMLHttpRequest"
+        }
+      });
+
+      if (response.ok) {
+        const html = await response.text();
+        section.innerHTML = html;
+      } else {
+        alert("Something went wrong.");
+      }
+    });
+  });
+</script>

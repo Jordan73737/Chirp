@@ -117,21 +117,33 @@ def edit_profile():
     return render_template('edit_profile.html', form=form)
 
 
-
 @main.route('/friend_request/send/<int:user_id>', methods=['POST'])
 @login_required
 def send_friend_request(user_id):
     user = User.query.get_or_404(user_id)
     if user_id == current_user.id:
         return "Cannot send request to yourself", 400
-    existing_request = FriendRequest.query.filter_by(sender_id=current_user.id, receiver_id=user_id).first()
+
+    existing_request = FriendRequest.query.filter_by(
+        sender_id=current_user.id,
+        receiver_id=user_id
+    ).first()
+
     if not existing_request:
         new_request = FriendRequest(sender_id=current_user.id, receiver_id=user_id)
         db.session.add(new_request)
         db.session.commit()
+
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-        return render_template('_friend_request_buttons.html', user=user, form=EmptyForm())
+        return render_template(
+            '_friend_request_buttons.html',
+            user=user,
+            form=EmptyForm(),
+            already_sent=True
+        )
+
     return redirect(url_for('main.view_user', user_id=user_id))
+
 
 @main.route('/cancel_friend_request/<int:user_id>', methods=['POST'])
 @login_required
@@ -176,6 +188,25 @@ def reject_friend_request(request_id):
     db.session.commit()
     flash("Friend request rejected.", "info")
     return redirect(url_for('main.profile'))
+
+@main.route('/friend/unfriend/<int:user_id>', methods=['POST'])
+@login_required
+def unfriend(user_id):
+    friend = User.query.get_or_404(user_id)
+
+    if friend not in current_user.friends:
+        return "Not friends", 400
+
+    current_user.friends.remove(friend)
+    friend.friends.remove(current_user)  # bidirectional removal
+    db.session.commit()
+
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return render_template('_friend_request_buttons.html', user=friend, form=EmptyForm(), already_sent=False)
+    return redirect(url_for('main.view_user', user_id=user_id))
+
+
+
 
 
 @main.route('/')
@@ -326,7 +357,6 @@ def like_post(post_id):
     db.session.commit()
     return redirect(url_for('main.feed'))
 
-
 @main.route('/user/<int:user_id>')
 @login_required
 def view_user(user_id):
@@ -341,22 +371,16 @@ def view_user(user_id):
     profile = user.profile
     form = ProfileForm()
 
-    # Always allow full access to your own profile
+    # Initialize flags
+    can_view_full_profile = False
+    already_sent = False
+    is_friend = Friend.query.filter_by(user_id=current_user.id, friend_id=user.id).first()
+
+    # Prevent sending requests to self
     if user.id == current_user.id:
         can_view_full_profile = True
-        already_sent = False  # You can't send yourself a request
     else:
-        is_friend = Friend.query.filter_by(user_id=current_user.id, friend_id=user.id).first()
-
-        # Apply privacy rules
-        if profile.privacy_level == 2:
-            can_view_full_profile = False
-        elif profile.privacy_level == 1 and not is_friend:
-            can_view_full_profile = False
-        else:
-            can_view_full_profile = True
-
-        # Check if friend request already sent and pending
+        # Check if request already sent
         existing_request = FriendRequest.query.filter_by(
             sender_id=current_user.id,
             receiver_id=user.id,
@@ -364,17 +388,26 @@ def view_user(user_id):
         ).first()
         already_sent = existing_request is not None
 
-        # Handle private profile view
-        if not can_view_full_profile:
-            return render_template(
-                'private_profile.html',
-                username=user.username,
-                profile_picture=profile.profile_pic,
-                user=user,
-                form=EmptyForm() 
-            )
+        # Privacy logic
+        if profile.privacy_level == 0:
+            can_view_full_profile = True
+        elif profile.privacy_level == 1:
+            can_view_full_profile = is_friend is not None
+        elif profile.privacy_level == 2:
+            can_view_full_profile = False
 
-    # Calculate mutual friends
+    # If profile is private (due to privacy rules), render private view
+    if not can_view_full_profile:
+        return render_template(
+            'private_profile.html',
+            username=user.username,
+            profile_picture=profile.profile_pic,
+            user=user,
+            form=EmptyForm(),
+            already_sent=already_sent  
+        )
+
+    # Mutual friends
     mutual_friends = list(set(current_user.friends) & set(user.friends))
 
     return render_template(
@@ -382,10 +415,11 @@ def view_user(user_id):
         user=user,
         profile=profile,
         mutual_friends=mutual_friends,
-        can_view_full_profile=can_view_full_profile,
+        can_view_full_profile=True,
         already_sent=already_sent,
         form=form
     )
+
 
 
 @main.route('/search_users')
