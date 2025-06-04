@@ -18,12 +18,29 @@ class User(db.Model, UserMixin):
     likes = db.relationship('Like', backref='user', lazy=True)
     reposts = db.relationship('Repost', backref='user', lazy=True)
 
+    
     friends = db.relationship(
         'User',
         secondary='friends',
         primaryjoin='User.id==Friend.user_id',
         secondaryjoin='User.id==Friend.friend_id',
         backref='friend_of'
+    )
+
+    sent_requests = db.relationship(
+        'FriendRequest',
+        foreign_keys='FriendRequest.sender_id',
+        backref='sender',
+        lazy='dynamic',
+        cascade='all, delete-orphan'
+    )
+
+    received_requests = db.relationship(
+        'FriendRequest',
+        foreign_keys='FriendRequest.receiver_id',
+        backref='receiver',
+        lazy='dynamic',
+        cascade='all, delete-orphan'
     )
 
     def set_password(self, password):
@@ -104,6 +121,3 @@ class FriendRequest(db.Model):
     receiver_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     status = db.Column(db.String(20), default='pending')  # pending, accepted, rejected
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-
-    sender = db.relationship('User', foreign_keys=[sender_id], backref='sent_requests')
-    receiver = db.relationship('User', foreign_keys=[receiver_id], backref='received_requests')

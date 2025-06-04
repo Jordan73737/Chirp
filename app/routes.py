@@ -130,7 +130,7 @@ def send_friend_request(user_id):
     ).first()
 
     if not existing_request:
-        new_request = FriendRequest(sender_id=current_user.id, receiver_id=user_id)
+        new_request = FriendRequest(sender_id=current_user.id, receiver_id=user_id, status='pending')
         db.session.add(new_request)
         db.session.commit()
 
@@ -480,3 +480,7 @@ def delete_account():
     # Show confirmation page
     return render_template('confirm_delete.html', form=form)
 
+@main.route('/debug_friend_requests')
+def debug_friend_requests():
+    requests = FriendRequest.query.all()
+    return "<br>".join([f"{r.id}: {r.sender.username} ➝ {r.receiver.username} ({r.status})" for r in requests])

@@ -34,7 +34,7 @@
 
           {% if user.received_requests %}
             <h4>Pending Friend Requests</h4>
-            {% for fr in user.received_requests if fr.status == 'pending' %}
+            {% for fr in user.received_requests.filter_by(status='pending').all() %}
               <div style="margin-bottom: 1em;">
                 <p>{{ fr.sender.username }} sent you a friend request.</p>
                 <form method="POST" action="{{ url_for('main.accept_friend_request', request_id=fr.id) }}" style="display: inline;">
@@ -53,7 +53,7 @@
 
           {% if user.sent_requests %}
             <h4>Pending Friend Requests You Sent</h4>
-            {% for fr in user.sent_requests if fr.status == 'pending' %}
+            {% for fr in user.sent_requests.filter_by(status='pending').all() %}
               <div style="margin-bottom: 0.5em;">
                 {{ fr.receiver.username }}
                 <form method="POST" action="{{ url_for('main.cancel_friend_request', user_id=fr.receiver.id) }}" style="display:inline;">
@@ -70,7 +70,7 @@
 
       <p><strong>Friends:</strong> {{ user.friends|length }}</p>
 
-      {% if mutual_friends %}
+      {% if current_user.id != user.id and mutual_friends %}
         <p><strong>Mutual Friends:</strong> {{ mutual_friends|length }}</p>
         <ul>
           {% for friend in mutual_friends %}
@@ -78,6 +78,7 @@
           {% endfor %}
         </ul>
       {% endif %}
+
 
       {% if user.friends %}
         <h4>Friend List:</h4>
