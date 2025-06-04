@@ -484,3 +484,11 @@ def delete_account():
 def debug_friend_requests():
     requests = FriendRequest.query.all()
     return "<br>".join([f"{r.id}: {r.sender.username} ➝ {r.receiver.username} ({r.status})" for r in requests])
+
+
+
+@main.route('/messages/<int:user_id>')
+@login_required
+def message_user(user_id):
+    other_user = User.query.get_or_404(user_id)
+    return render_template('messages.html', other_user=other_user)
