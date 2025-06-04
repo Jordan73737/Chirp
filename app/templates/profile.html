@@ -36,7 +36,7 @@
             <h4>Pending Friend Requests</h4>
             {% for fr in user.received_requests.filter_by(status='pending').all() %}
               <div style="margin-bottom: 1em;">
-                <p>{{ fr.sender.username }} sent you a friend request.</p>
+                <p><a href="{{ url_for('main.view_user', user_id=fr.sender.id) }}">{{ fr.sender.username }}</a> sent you a friend request.</p>
                 <form method="POST" action="{{ url_for('main.accept_friend_request', request_id=fr.id) }}" style="display: inline;">
                   {{ form.hidden_tag() }}
                   <button type="submit" class="btn">Accept</button>
@@ -55,7 +55,7 @@
             <h4>Pending Friend Requests You Sent</h4>
             {% for fr in user.sent_requests.filter_by(status='pending').all() %}
               <div style="margin-bottom: 0.5em;">
-                {{ fr.receiver.username }}
+                <a href="{{ url_for('main.view_user', user_id=fr.receiver.id) }}">{{ fr.receiver.username }}</a>
                 <form method="POST" action="{{ url_for('main.cancel_friend_request', user_id=fr.receiver.id) }}" style="display:inline;">
                   {{ form.hidden_tag() }}
                   <button type="submit" class="btn btn-danger" style="margin-left: 10px;">Cancel Friend Request</button>
@@ -84,7 +84,7 @@
         <h4>Friend List:</h4>
         <ul>
           {% for friend in user.friends %}
-            <li>{{ friend.username }}</li>
+            <li><a href="{{ url_for('main.view_user', user_id=friend.id) }}">{{ friend.username }}</a></li>
           {% endfor %}
         </ul>
       {% endif %}
