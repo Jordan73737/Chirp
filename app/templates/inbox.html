@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Start a Conversation</h2>
+
+<!-- Search Bar -->
+<input type="text" id="userSearch" placeholder="Search users..." style="width: 100%; padding: 0.5em; margin-bottom: 1em;">
+<ul id="searchResults"></ul>
+
+<!-- Friends List -->
+<h3>Your Friends</h3>
+<ul>
+  {% for friend in friends %}
+    <li>
+      <a href="{{ url_for('main.messages', user_id=friend.id) }}" class="{% if selected_user and selected_user.id == friend.id %}active-chat{% endif %}">
+        <img src="{{ friend.profile.profile_pic or '/static/default-avatar.png' }}" width="30" height="30" style="border-radius: 50%; vertical-align: middle; margin-right: 8px;">
+        {{ friend.username }}
+      </a>
+    </li>
+  {% else %}
+    <li>No friends to message.</li>
+  {% endfor %}
+</ul>
+
+<!-- Existing Conversations -->
+<h3>Conversations</h3>
+<ul>
+  {% for user in users %}
+    <li>
+      <a href="{{ url_for('main.messages', user_id=user.id) }}" class="{% if selected_user and selected_user.id == user.id %}active-chat{% endif %}">
+        <img src="{{ user.profile.profile_pic or '/static/default-avatar.png' }}" width="30" height="30" style="border-radius: 50%; vertical-align: middle; margin-right: 8px;">
+        {{ user.username }}
+        {% if user.id in unread_map %}
+          <span style="background:red; color:white; border-radius:10px; padding:2px 6px; font-size:0.8em;">
+            {{ unread_map[user.id] }}
+          </span>
+        {% endif %}
+      </a>
+    </li>
+  {% else %}
+    <li>No conversations yet.</li>
+  {% endfor %}
+</ul>
+
+<!-- Chat Box -->
+{% if selected_user %}
+  <h3>Chat with {{ selected_user.username }}</h3>
+  <div id="chatBox" style="border: 1px solid #ccc; padding: 1em; height: 300px; overflow-y: auto;">
+    {% for msg in chat_messages %}
+      <div><strong>{{ 'You' if msg.sender_id == current_user.id else selected_user.username }}</strong>: {{ msg.content }}</div>
+    {% endfor %}
+  </div>
+
+  <div id="typingIndicator" style="font-style: italic; margin-top: 0.5em;"></div>
+
+  <form id="sendForm">
+    <input type="text" id="msgInput" placeholder="Type your message..." autocomplete="off" required />
+    <button type="submit">Send</button>
+  </form>
+
+  <script src="//cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.min.js"></script>
+  <script>
+    const socket = io();
+    const myId = {{ current_user.id|tojson }};
+    const otherUserId = {{ selected_user.id|tojson }};
+    const otherUsername = {{ selected_user.username|tojson }};
+
+    socket.on('connect', () => {
+      socket.emit('join', myId);
+    });
+
+    document.getElementById('sendForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const msg = document.getElementById('msgInput').value;
+      socket.emit('send_message', {
+        sender_id: myId,
+        receiver_id: otherUserId,
+        message: msg
+      });
+
+      // Immediately display message
+      const chatBox = document.getElementById('chatBox');
+      const messageDiv = document.createElement('div');
+      messageDiv.innerHTML = `<strong>You</strong>: ${msg}`;
+      chatBox.appendChild(messageDiv);
+      chatBox.scrollTop = chatBox.scrollHeight;
+
+      document.getElementById('msgInput').value = '';
+    });
+
+    socket.on('receive_message', function(data) {
+      if (data.sender_id === otherUserId) {
+        const chatBox = document.getElementById('chatBox');
+        const messageDiv = document.createElement('div');
+        messageDiv.innerHTML = `<strong>${otherUsername}</strong>: ${data.content}`;
+        chatBox.appendChild(messageDiv);
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }
+    });
+
+    // Emit typing event
+    document.getElementById('msgInput').addEventListener('input', () => {
+      socket.emit('typing', { from: myId, to: otherUserId, username: '{{ current_user.username }}' });
+    });
+
+    socket.on('display_typing', data => {
+      if (data.from === otherUserId) {
+        const indicator = document.getElementById('typingIndicator');
+        indicator.textContent = `${data.username} is typing...`;
+        setTimeout(() => {
+          indicator.textContent = '';
+        }, 2000);
+      }
+    });
+
+    window.onload = function() {
+      const chatBox = document.getElementById('chatBox');
+      chatBox.scrollTop = chatBox.scrollHeight;
+    };
+  </script>
+{% endif %}
+
+<script>
+  document.getElementById('userSearch').addEventListener('input', async function () {
+    const query = this.value;
+    const response = await fetch(`/api/search_users?q=${query}`);
+    const users = await response.json();
+
+    const resultList = document.getElementById('searchResults');
+    resultList.innerHTML = '';
+    users.forEach(user => {
+      const li = document.createElement('li');
+      const link = document.createElement('a');
+      link.href = `/messages?user_id=${user.id}`;
+      link.textContent = user.username;
+      li.appendChild(link);
+      resultList.appendChild(li);
+    });
+  });
+</script>
+
+<style>
+  .active-chat {
+    font-weight: bold;
+    background-color: #f0f0f0;
+    border-radius: 5px;
+    padding: 4px;
+  }
+</style>
+{% endblock %}

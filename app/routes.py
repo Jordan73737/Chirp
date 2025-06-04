@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from app.forms import RegisterForm, LoginForm, LikeForm, ProfileForm, PostForm, EmptyForm
 from app import db, login_manager
 from flask_login import login_user, logout_user, login_required, current_user
-from app.models import User, Post, Like, Profile, Friend, FriendRequest
+from app.models import User, Post, Like, Profile, Friend, FriendRequest, Message
 import os
 from werkzeug.utils import secure_filename
 from flask import current_app
@@ -486,9 +486,51 @@ def debug_friend_requests():
     return "<br>".join([f"{r.id}: {r.sender.username} ➝ {r.receiver.username} ({r.status})" for r in requests])
 
 
+# @main.route('/messages/<int:user_id>')
+# @login_required
+# def message_user(user_id):
+#     other_user = User.query.get_or_404(user_id)
 
-@main.route('/messages/<int:user_id>')
+#     # Get all messages between current user and the other user
+#     messages = Message.query.filter(
+#         ((Message.sender_id == current_user.id) & (Message.receiver_id == user_id)) |
+#         ((Message.sender_id == user_id) & (Message.receiver_id == current_user.id))
+#     ).order_by(Message.timestamp).all()
+
+#     return render_template('messages.html', other_user=other_user, messages=messages)
+
+
+
+@main.route('/messages')
 @login_required
-def message_user(user_id):
-    other_user = User.query.get_or_404(user_id)
-    return render_template('messages.html', other_user=other_user)
+def messages():
+    # Get all users you've had a conversation with (either sent or received)
+    messaged_user_ids = db.session.query(Message.sender_id).filter_by(receiver_id=current_user.id).union(
+        db.session.query(Message.receiver_id).filter_by(sender_id=current_user.id)
+    ).distinct().all()
+
+    user_ids = [uid[0] for uid in messaged_user_ids if uid[0] != current_user.id]
+    users = User.query.filter(User.id.in_(user_ids)).all()
+
+    # Friends via the User.friends relationship
+    friends = current_user.friends
+
+    # Optional: Load chat if user_id is passed
+    selected_user = None
+    chat_messages = []
+    user_id = request.args.get('user_id')
+    if user_id:
+        selected_user = User.query.get(int(user_id))
+        if selected_user:
+            chat_messages = Message.query.filter(
+                ((Message.sender_id == current_user.id) & (Message.receiver_id == selected_user.id)) |
+                ((Message.sender_id == selected_user.id) & (Message.receiver_id == current_user.id))
+            ).order_by(Message.timestamp).all()
+
+    return render_template(
+        'inbox.html',
+        users=users,
+        friends=friends,
+        selected_user=selected_user,
+        chat_messages=chat_messages
+    )
