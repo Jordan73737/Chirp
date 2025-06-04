@@ -60,7 +60,7 @@
   {% macro render_replies(replies) %}
     {% for reply in replies %}
       <div style="margin-left: 2em; border-left: 2px solid #ccc; padding-left: 1em; margin-top: 0.5em;">
-        <strong>{{ reply.author.username }}</strong>
+        <strong><a href="{{ url_for('main.view_user', user_id=reply.author.id) }}">{{ reply.author.username }}</a></strong>
         <small style="color: gray;">— {{ reply.timestamp.strftime('%Y-%m-%d %H:%M') }}</small>
         {% if reply.deleted %}
           <p style="color: gray; font-style: italic;">This post has been deleted.</p>
@@ -98,7 +98,7 @@
   <!-- Top-Level Posts -->
   {% for post in posts if not post.parent_id %}
     <div style="margin-bottom: 1.5em;">
-      <strong>{{ post.author.username }}</strong>
+      <strong><a href="{{ url_for('main.view_user', user_id=post.author.id) }}">{{ post.author.username }}</a></strong>
       <small style="color: gray;">— {{ post.timestamp.strftime('%Y-%m-%d %H:%M') }}</small>
       {% if post.deleted %}
         <p style="color: gray; font-style: italic;">This post has been deleted.</p>
