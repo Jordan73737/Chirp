@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Notifications{% endblock %}
+
+{% block content %}
+<h2>Your Notifications</h2>
+
+<ul>
+  {% for notif in notifications %}
+    <li style="margin-bottom: 1em;">
+      <a href="{{ notif.link }}" onclick="markAsRead({{ notif.id }})" style="{{ '' if notif.read else 'font-weight:bold;' }}">
+        {{ notif.content }} <br>
+        <small>{{ notif.timestamp.strftime('%b %d, %H:%M') }}</small>
+      </a>
+      {% if not notif.read %}
+        <button onclick="markAsRead({{ notif.id }})" style="margin-left: 10px;">Mark as read</button>
+      {% endif %}
+    </li>
+  {% else %}
+    <li>No notifications yet.</li>
+  {% endfor %}
+</ul>
+
+<script>
+  function markAsRead(notifId) {
+    fetch(`/notifications/mark_read/${notifId}`, {
+      method: 'POST',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    }).then(res => {
+      if (res.ok) {
+        // Optional: refresh page or update UI
+        setTimeout(() => location.reload(), 300);
+      }
+    });
+  }
+</script>
+{% endblock %}

@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from app.forms import RegisterForm, LoginForm, LikeForm, ProfileForm, PostForm, EmptyForm
 from app import db, login_manager
 from flask_login import login_user, logout_user, login_required, current_user
-from app.models import User, Post, Like, Profile, Friend, FriendRequest, Message
+from app.models import User, Post, Like, Profile, Friend, FriendRequest, Message, Notification
 import os
 from werkzeug.utils import secure_filename
 from flask import current_app
@@ -116,11 +116,11 @@ def edit_profile():
 
     return render_template('edit_profile.html', form=form)
 
-
 @main.route('/friend_request/send/<int:user_id>', methods=['POST'])
 @login_required
 def send_friend_request(user_id):
     user = User.query.get_or_404(user_id)
+
     if user_id == current_user.id:
         return "Cannot send request to yourself", 400
 
@@ -132,6 +132,15 @@ def send_friend_request(user_id):
     if not existing_request:
         new_request = FriendRequest(sender_id=current_user.id, receiver_id=user_id, status='pending')
         db.session.add(new_request)
+
+        notif = Notification(
+            user_id=user.id,
+            type='friend_request',
+            content=f"{current_user.username} sent you a friend request",
+            link="/profile"
+        )
+        db.session.add(notif)
+
         db.session.commit()
 
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
@@ -438,12 +447,24 @@ def search_users():
 def reply(post_id):
     parent_post = Post.query.get_or_404(post_id)
     form = PostForm()
+
     if form.validate_on_submit():
         reply = Post(content=form.content.data, user_id=current_user.id, parent=parent_post)
         db.session.add(reply)
+
+        if parent_post.author.id != current_user.id:
+            notif = Notification(
+                user_id=parent_post.author.id,
+                type='reply',
+                content=f"{current_user.username} replied to your post",
+                link=f"/post/{parent_post.id}"
+            )
+            db.session.add(notif)
+
         db.session.commit()
         flash('Reply posted!', 'success')
         return redirect(url_for('main.feed'))
+
     return render_template('reply.html', form=form, parent=parent_post)
 
 
@@ -504,21 +525,20 @@ def debug_friend_requests():
 @main.route('/messages')
 @login_required
 def messages():
-    # Get all users you've had a conversation with (either sent or received)
+    selected_user = None  # Move this to the top to avoid UnboundLocalError
+    messages = []
+
     messaged_user_ids = db.session.query(Message.sender_id).filter_by(receiver_id=current_user.id).union(
         db.session.query(Message.receiver_id).filter_by(sender_id=current_user.id)
     ).distinct().all()
 
     user_ids = [uid[0] for uid in messaged_user_ids if uid[0] != current_user.id]
     users = User.query.filter(User.id.in_(user_ids)).all()
-
-    # Friends via the User.friends relationship
     friends = current_user.friends
 
-    # Optional: Load chat if user_id is passed
-    selected_user = None
-    chat_messages = []
     user_id = request.args.get('user_id')
+    chat_messages = []
+
     if user_id:
         selected_user = User.query.get(int(user_id))
         if selected_user:
@@ -527,10 +547,63 @@ def messages():
                 ((Message.sender_id == selected_user.id) & (Message.receiver_id == current_user.id))
             ).order_by(Message.timestamp).all()
 
+            # Mark all messages from selected_user to current_user as read
+            unread_msgs = [msg for msg in chat_messages if msg.receiver_id == current_user.id and not msg.read]
+            for msg in unread_msgs:
+                msg.read = True
+            db.session.commit()
+    recent_conversations = []
+    for user in users:
+        last_msg = Message.query.filter(
+            ((Message.sender_id == current_user.id) & (Message.receiver_id == user.id)) |
+            ((Message.sender_id == user.id) & (Message.receiver_id == current_user.id))
+        ).order_by(Message.timestamp.desc()).first()
+
+        unread_count = Message.query.filter_by(sender_id=user.id, receiver_id=current_user.id, read=False).count()
+
+        if last_msg:
+            recent_conversations.append({
+                'user': user,
+                'last_message': last_msg.content,
+                'timestamp': last_msg.timestamp,
+                'unread_count': unread_count
+            })
+
     return render_template(
         'inbox.html',
         users=users,
         friends=friends,
         selected_user=selected_user,
-        chat_messages=chat_messages
+        chat_messages=chat_messages,
+        recent_conversations=recent_conversations,
+        my_id=current_user.id,
+        other_user_id=int(user_id) if user_id else None,
+        other_username=selected_user.username if selected_user else '',
+        my_avatar=current_user.profile.profile_pic if current_user.profile and current_user.profile.profile_pic else '/static/default-avatar.png',
+        other_avatar=selected_user.profile.profile_pic if selected_user and selected_user.profile and selected_user.profile.profile_pic else '/static/default-avatar.png'
     )
+
+
+@main.route("/notifications")
+@login_required
+def notifications():
+    all_notifications = Notification.query.filter_by(user_id=current_user.id).order_by(Notification.timestamp.desc()).all()
+    return render_template("notifications.html", notifications=all_notifications)
+
+
+@main.route('/api/unread_notifications')
+@login_required
+def unread_notifications():
+    count = Notification.query.filter_by(user_id=current_user.id, is_read=False).count()
+    return jsonify({'count': count})
+
+
+@main.route("/notifications/mark_read/<int:notif_id>", methods=["POST"])
+@login_required
+def mark_notification_read(notif_id):
+    notif = Notification.query.get_or_404(notif_id)
+    if notif.user_id != current_user.id:
+        abort(403)
+    notif.read = True
+    db.session.commit()
+    return jsonify({"status": "success", "notif_id": notif_id})
