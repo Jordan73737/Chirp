@@ -521,37 +521,34 @@ def debug_friend_requests():
 #     return render_template('messages.html', other_user=other_user, messages=messages)
 
 
-
 @main.route('/messages')
 @login_required
 def messages():
-    selected_user = None  # Move this to the top to avoid UnboundLocalError
-    messages = []
+    user_id = request.args.get('user_id', type=int)
+    selected_user = User.query.get(user_id) if user_id else None
 
+    # Step 1: Get all users the current user has chatted with
     messaged_user_ids = db.session.query(Message.sender_id).filter_by(receiver_id=current_user.id).union(
         db.session.query(Message.receiver_id).filter_by(sender_id=current_user.id)
     ).distinct().all()
-
     user_ids = [uid[0] for uid in messaged_user_ids if uid[0] != current_user.id]
     users = User.query.filter(User.id.in_(user_ids)).all()
-    friends = current_user.friends
 
-    user_id = request.args.get('user_id')
+    # Step 2: Load messages between current_user and selected_user
     chat_messages = []
+    if selected_user:
+        chat_messages = Message.query.filter(
+            ((Message.sender_id == current_user.id) & (Message.receiver_id == selected_user.id)) |
+            ((Message.sender_id == selected_user.id) & (Message.receiver_id == current_user.id))
+        ).order_by(Message.timestamp.asc()).all()
 
-    if user_id:
-        selected_user = User.query.get(int(user_id))
-        if selected_user:
-            chat_messages = Message.query.filter(
-                ((Message.sender_id == current_user.id) & (Message.receiver_id == selected_user.id)) |
-                ((Message.sender_id == selected_user.id) & (Message.receiver_id == current_user.id))
-            ).order_by(Message.timestamp).all()
+        # Mark messages from selected_user as read
+        unread = Message.query.filter_by(sender_id=selected_user.id, receiver_id=current_user.id, read=False).all()
+        for msg in unread:
+            msg.read = True
+        db.session.commit()
 
-            # Mark all messages from selected_user to current_user as read
-            unread_msgs = [msg for msg in chat_messages if msg.receiver_id == current_user.id and not msg.read]
-            for msg in unread_msgs:
-                msg.read = True
-            db.session.commit()
+    # Step 3: Build recent conversations
     recent_conversations = []
     for user in users:
         last_msg = Message.query.filter(
@@ -559,9 +556,8 @@ def messages():
             ((Message.sender_id == user.id) & (Message.receiver_id == current_user.id))
         ).order_by(Message.timestamp.desc()).first()
 
-        unread_count = Message.query.filter_by(sender_id=user.id, receiver_id=current_user.id, read=False).count()
-
         if last_msg:
+            unread_count = Message.query.filter_by(sender_id=user.id, receiver_id=current_user.id, read=False).count()
             recent_conversations.append({
                 'user': user,
                 'last_message': last_msg.content,
@@ -572,12 +568,12 @@ def messages():
     return render_template(
         'inbox.html',
         users=users,
-        friends=friends,
+        friends=current_user.friends,
         selected_user=selected_user,
         chat_messages=chat_messages,
-        recent_conversations=recent_conversations,
+        recent_conversations=sorted(recent_conversations, key=lambda x: x['timestamp'], reverse=True),
         my_id=current_user.id,
-        other_user_id=int(user_id) if user_id else None,
+        other_user_id=user_id,
         other_username=selected_user.username if selected_user else '',
         my_avatar=current_user.profile.profile_pic if current_user.profile and current_user.profile.profile_pic else '/static/default-avatar.png',
         other_avatar=selected_user.profile.profile_pic if selected_user and selected_user.profile and selected_user.profile.profile_pic else '/static/default-avatar.png'
@@ -594,7 +590,7 @@ def notifications():
 @main.route('/api/unread_notifications')
 @login_required
 def unread_notifications():
-    count = Notification.query.filter_by(user_id=current_user.id, is_read=False).count()
+    count = Notification.query.filter_by(user_id=current_user.id, read=False).count()
     return jsonify({'count': count})
 
 
@@ -607,3 +603,10 @@ def mark_notification_read(notif_id):
     notif.read = True
     db.session.commit()
     return jsonify({"status": "success", "notif_id": notif_id})
+
+
+
+@main.route("/debug/messages")
+def debug_messages():
+    msgs = Message.query.all()
+    return "<br>".join([f"{m.sender_id} -> {m.recipient_id}: {m.content}" for m in msgs])

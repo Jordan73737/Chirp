@@ -3,7 +3,7 @@
 <h2>Inbox</h2>
 
 <script>
-  const unreadCount = {{ total_unread_count }};
+  const unreadCount = {{ total_unread_count or 0 }};
   const badge = document.getElementById('messageBadge');
   if (badge && unreadCount > 0) {
     badge.textContent = unreadCount;
@@ -70,10 +70,22 @@
 
 <script src="//cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.min.js"></script>
 <script>
-  const socket = io();
+  const otherUser = {
+    id: {{ selected_user.id if selected_user else 'null' }},
+    username: {{ selected_user.username | tojson if selected_user else 'null' }},
+    avatar: {{ (selected_user.profile.profile_pic if selected_user and selected_user.profile and selected_user.profile.profile_pic else "/static/default-avatar.png") | tojson }}
+  };
+</script>
+
+<script>
   const myId = {{ current_user.id | tojson }};
-  const otherUserId = {{ selected_user.id | tojson if selected_user else 'null' }};
-  const otherUsername = {{ selected_user.username | tojson if selected_user else '""' }};
+  const myUsername = {{ current_user.username | tojson }};
+  const otherUserId = otherUser ? otherUser.id : null;
+  const otherUsername = otherUser ? otherUser.username : "";
+</script>
+
+<script>
+  const socket = io();
 
   socket.on('connect', () => {
     socket.emit('join', myId);
@@ -87,8 +99,8 @@
     const msg = document.getElementById('msgInput').value;
     socket.emit('send_message', {
       sender_id: myId,
-      receiver_id: otherUserId,
-      message: msg
+      recipient_id: otherUserId,
+      content: msg
     });
 
     const chatBox = document.getElementById('chatBox');
@@ -122,7 +134,11 @@
   });
 
   document.getElementById('msgInput').addEventListener('input', () => {
-    socket.emit('typing', { from: myId, to: otherUserId, username: {{ current_user.username | tojson }} });
+    socket.emit('typing', {
+      from: myId,
+      to: otherUserId,
+      username: myUsername
+    });
   });
 
   socket.on('display_typing', data => {
@@ -138,6 +154,7 @@
     if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
   };
 </script>
+
 
 <script>
   document.getElementById('userSearch').addEventListener('input', async function () {

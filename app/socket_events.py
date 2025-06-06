@@ -1,7 +1,7 @@
 from flask_socketio import emit, join_room
 from app import socketio, db
 from flask import request
-from app.models import Message, Notification
+from app.models import Message, Notification, User
 
 connected_users = set()
 
@@ -22,6 +22,8 @@ def handle_send_message(data):
     recipient_id = data.get("recipient_id")
     content = data.get("content")
 
+    if not sender_id or not recipient_id or not content:
+            return 
     if sender_id and recipient_id and content:
         # Fetch the sender user from DB (needed for the notification text)
         sender = User.query.get(sender_id)
@@ -30,6 +32,8 @@ def handle_send_message(data):
         message = Message(sender_id=sender_id, recipient_id=recipient_id, content=content)
         db.session.add(message)
         db.session.commit()
+        print(f"Saved message: {message.content} from {sender_id} to {recipient_id}")
+        print(f"Saved message: {message.content}")
 
         # Save notification for the recipient
         notif = Notification(
