@@ -4,12 +4,13 @@ from flask import request
 from app.models import Message, Notification, User
 
 connected_users = set()
-
+print("Socket event handlers registered")
 @socketio.on('join')
-def on_join(user_id):
-    join_room(str(user_id))
-    connected_users.add(user_id)
-    emit('user_status', {'user_id': user_id, 'status': 'online'}, broadcast=True)
+def on_join(users_id):
+    join_room(f"user_{users_id}") 
+    connected_users.add(users_id)
+    emit('user_status', {'user_id': users_id, 'status': 'online'}, broadcast=True)
+
 
 @socketio.on('disconnect')
 def on_disconnect():
@@ -18,10 +19,14 @@ def on_disconnect():
 
 @socketio.on("send_message")
 def handle_send_message(data):
+    print("Received message:", data)
     sender_id = data.get("sender_id")
     recipient_id = data.get("recipient_id")
     content = data.get("content")
 
+    print(f"senderId: {sender_id}")
+    print(f"recipient_id: {recipient_id}")
+    print(f"content: {content}")
     if not sender_id or not recipient_id or not content:
             return 
     if sender_id and recipient_id and content:
@@ -29,7 +34,7 @@ def handle_send_message(data):
         sender = User.query.get(sender_id)
 
         # Save the message to DB
-        message = Message(sender_id=sender_id, recipient_id=recipient_id, content=content)
+        message = Message(sender_id=sender_id, receiver_id=recipient_id, content=content)
         db.session.add(message)
         db.session.commit()
         print(f"Saved message: {message.content} from {sender_id} to {recipient_id}")
@@ -84,3 +89,6 @@ def handle_mark_read(data):
     emit('messages_marked_read', {'from': sender_id}, room=str(sender_id))
 
 
+@socketio.on('test_message')
+def handle_test_message(data):
+    print("Got message:", data)

@@ -71,7 +71,7 @@
 <script src="//cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.min.js"></script>
 <script>
   const otherUser = {
-    id: {{ selected_user.id if selected_user else 'null' }},
+    id: {{ selected_user.id if selected_user else null }},
     username: {{ selected_user.username | tojson if selected_user else 'null' }},
     avatar: {{ (selected_user.profile.profile_pic if selected_user and selected_user.profile and selected_user.profile.profile_pic else "/static/default-avatar.png") | tojson }}
   };
@@ -88,32 +88,38 @@
   const socket = io();
 
   socket.on('connect', () => {
+    console.log('Socket connected!');
     socket.emit('join', myId);
     if (otherUserId !== null) {
       socket.emit('mark_read', { from: myId, to: otherUserId });
     }
   });
 
-  document.getElementById('sendForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const msg = document.getElementById('msgInput').value;
-    socket.emit('send_message', {
-      sender_id: myId,
-      recipient_id: otherUserId,
-      content: msg
-    });
+document.getElementById('sendForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const msg = document.getElementById('msgInput').value;
+  console.log('Socket sending message!');
+  socket.emit('test_message', { otherUserId, msg });
+  console.log('Sent:', { otherUserId, msg });
 
-    const chatBox = document.getElementById('chatBox');
-    const messageDiv = document.createElement('div');
-    const now = new Date();
-    const time = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
-    messageDiv.classList.add('message', 'sent');
-    messageDiv.innerHTML = `<strong>You</strong>: ${msg} <span style="font-size:0.75em;color:gray;">${time}</span><span class="status"> ✓✓ Seen</span>`;
-    chatBox.appendChild(messageDiv);
-    chatBox.scrollTop = chatBox.scrollHeight;
-
-    document.getElementById('msgInput').value = '';
+  socket.emit('send_message', {
+    sender_id: myId,
+    recipient_id: otherUserId,
+    content: msg
   });
+
+  // Append message locally
+  const chatBox = document.getElementById('chatBox');
+  const messageDiv = document.createElement('div');
+  const now = new Date();
+  const time = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+  messageDiv.classList.add('message', 'sent');
+  messageDiv.innerHTML = `<strong>You</strong>: ${msg} <span style="font-size:0.75em;color:gray;">${time}</span><span class="status"> ✓ Sent</span>`;
+  chatBox.appendChild(messageDiv);
+  chatBox.scrollTop = chatBox.scrollHeight;
+
+  document.getElementById('msgInput').value = '';
+});
 
   socket.on('receive_message', function(data) {
     if (data.sender_id === otherUserId) {
@@ -149,10 +155,12 @@
     }
   });
 
-  window.onload = function() {
-    const chatBox = document.getElementById('chatBox');
-    if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
-  };
+window.onload = function() {
+  const chatBox = document.getElementById('chatBox');
+  if (chatBox) {
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+};
 </script>
 
 

@@ -13,7 +13,8 @@ login_manager = LoginManager()
 mail = Mail()
 migrate = Migrate()
 csrf = CSRFProtect() 
-socketio = SocketIO()
+socketio = SocketIO(cors_allowed_origins="*", async_mode="threading", logger=True, engineio_logger=True)
+
 
 def create_app():
     app = Flask(__name__)
@@ -30,6 +31,6 @@ def create_app():
     from .routes import main
     app.register_blueprint(main)
     from app import models
-
+    from app import socket_events
     return app
 
