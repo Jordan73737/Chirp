@@ -1,8 +1,11 @@
+----------------------------------------------------------------------------------------------------------------------------
 CHIRP!
 
 Tired of Twitter and Facebook? Try Chirp!
 
+----------------------------------------------------------------------------------------------------------------------------
 FEATURES:
+----------------------------------------------------------------------------------------------------------------------------
 User Authentication: Register, log in, and manage secure sessions.
 
 O-Auth - Sign in with Microsoft or Google!
@@ -23,9 +26,9 @@ Message Notifications: Receive in-app notifications for new messages.
 
 Responsive UI: Clean and functional interface for desktop and mobile.
 
-
-
+----------------------------------------------------------------------------------------------------------------------------
 TECHNOLOGIES USED
+----------------------------------------------------------------------------------------------------------------------------
 Flask (Python web framework)
 
 Flask-SocketIO (WebSocket support)
@@ -42,7 +45,9 @@ Flask-WTF (Form validation and CSRF protection)
 
 HTML, CSS, JavaScript (Frontend)
 
-Getting Started
+----------------------------------------------------------------------------------------------------------------------------
+GETTING STARTED
+----------------------------------------------------------------------------------------------------------------------------
 1. Clone the Repository
 git clone https://github.com/your-username/chirp.git
 cd chirp
